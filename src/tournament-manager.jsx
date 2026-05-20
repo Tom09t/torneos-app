@@ -308,6 +308,19 @@ const css = `
   }
   .match-card-input:focus { border-color: var(--accent); background: var(--bg); }
   .match-card-input::placeholder { color: var(--border2); font-size: 16px; }
+  .match-card-item.selected {
+    border-color: var(--accent); background: #1e1a0a;
+    box-shadow: 0 0 0 1px var(--accent2);
+  }
+  .random-btn {
+    width: 100%; margin-top: 14px; padding: 11px;
+    background: var(--bg3); border: 1px dashed var(--border2);
+    border-radius: 8px; color: var(--muted); font-size: 13px;
+    font-weight: 500; cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .random-btn:hover { border-color: var(--accent); color: var(--accent); background: #1e1a0a; }
+  .random-btn:disabled { opacity: .35; cursor: not-allowed; }
 
   /* Champion banner */
   .champion-banner {
@@ -892,6 +905,7 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
   const defaultTab = t.status === "groups" ? "partidos" : "playoffs";
   const [tab, setTab] = useState(defaultTab);
   const [groupTab, setGroupTab] = useState(t.groups?.[0]?.name || "A");
+  const [selectedMatch, setSelectedMatch] = useState(null);
   const [inputs, setInputs] = useState({});
   const [confirm, setConfirm] = useState(false);
 
@@ -903,7 +917,8 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
     if (t.groups?.length > 0 && !t.groups.find((g) => g.name === groupTab)) {
       setGroupTab(t.groups[0].name);
     }
-  }, [t.groups]);
+    setSelectedMatch(null);
+  }, [t.groups, groupTab]);
 
   function inp(key, val) { setInputs((p) => ({ ...p, [key]: val })); }
   function get(key, fallback) { return inputs[key] !== undefined ? inputs[key] : fallback; }
@@ -1021,7 +1036,7 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
                     if (newHv !== "" && newAv !== "") onSaveGroup(activeGroupIdx, m.id, newHv, newAv);
                   }
                   return (
-                    <div key={m.id} className={`match-card-item${done ? " done" : ""}`}>
+                    <div key={m.id} className={`match-card-item${done ? " done" : ""}${selectedMatch === m.id ? " selected" : ""}`}>
                       <span className={`match-card-name${winA ? " winner" : winB ? " loser" : ""}`}>{m.home}</span>
                       <div className="match-card-scores">
                         {done ? (
@@ -1050,6 +1065,21 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
                     </div>
                   );
                 })}
+                {(() => {
+                  const pending = activeGroup.matches.filter((m) => m.status !== "finished");
+                  return (
+                    <button
+                      className="random-btn"
+                      disabled={pending.length === 0}
+                      onClick={() => {
+                        const pick = pending[Math.floor(Math.random() * pending.length)];
+                        setSelectedMatch(pick.id);
+                      }}
+                    >
+                      🎲 Elegí partido aleatorio
+                    </button>
+                  );
+                })()}
               </div>
             )}
           </div>
