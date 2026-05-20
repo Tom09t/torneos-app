@@ -447,7 +447,7 @@ function buildGroupMatches(teams) {
   for (let i = 0; i < teams.length; i++)
     for (let j = i + 1; j < teams.length; j++)
       matches.push({ id: genId(), home: teams[i], away: teams[j], homeGoals: null, awayGoals: null, status: "pending" });
-  return matches;
+  return shuffle(matches);
 }
 
 function buildGroups(teams) {
