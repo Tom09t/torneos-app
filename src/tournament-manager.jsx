@@ -322,6 +322,81 @@ const css = `
   .random-btn:hover { border-color: var(--accent); color: var(--accent); background: #1e1a0a; }
   .random-btn:disabled { opacity: .35; cursor: not-allowed; }
 
+  /* ── Keyframe animations ── */
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes saveFlash {
+    0%,100% { background: var(--bg3); border-color: var(--border); }
+    45%     { background: var(--greenBg); border-color: var(--green); }
+  }
+  @keyframes championPop {
+    from { opacity: 0; transform: translateY(-16px) scale(.95); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(22px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .t-item { animation: fadeSlideUp .3s ease both; }
+  .match-card-item.just-saved { animation: saveFlash .75s ease; }
+  .champion-banner { animation: championPop .45s cubic-bezier(.34,1.56,.64,1) both; }
+  .tab-panel { animation: fadeIn .2s ease both; }
+  .create-card { animation: slideInRight .25s ease both; }
+
+  /* Team input valid */
+  .team-input.valid { border-color: #2e7d4f; }
+
+  /* Bracket enhancements */
+  .bracket-match { box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+  .bracket-team.winner {
+    background: linear-gradient(90deg, #1e1900 0%, #221f00 100%);
+    border-left: 3px solid var(--accent);
+    padding-left: 6px;
+  }
+  .bracket-team.loser { opacity: .45; }
+  .bracket-score.winner { color: var(--accent); }
+
+  /* Bracket mobile scroll hint */
+  .bracket-scroll-hint {
+    position: relative;
+  }
+  .bracket-scroll-hint::after {
+    content: '';
+    position: absolute; top: 0; right: 0; bottom: 8px;
+    width: 48px;
+    background: linear-gradient(to right, transparent, var(--bg2));
+    pointer-events: none; border-radius: 0 10px 10px 0;
+  }
+
+  /* ── Mobile responsive ── */
+  @media (max-width: 600px) {
+    .tm-root { padding: 16px 12px 80px; }
+    .app-wordmark { font-size: 20px; }
+    .t-page-title { font-size: 22px; }
+    .top-bar { margin-bottom: 20px; }
+    .card { padding: 16px 14px; }
+    .match-card-item { padding: 11px 12px; gap: 8px; }
+    .match-card-name { font-size: 13px; }
+    .match-card-input { width: 46px; font-size: 20px; padding: 6px; }
+    .match-card-num { font-size: 22px; min-width: 22px; }
+    .goal-input { width: 38px; }
+    .standings-table { font-size: 11px; }
+    .standings-table th, .standings-table td { padding: 5px 3px; }
+    .pill { padding: 7px 12px; font-size: 12px; }
+    .tab-btn { padding: 10px 14px; font-size: 12px; }
+    .bracket-team { min-height: 32px; padding: 5px 8px; }
+    .bracket-team-name { font-size: 11px; }
+    .bracket-match { width: 130px; }
+    .team-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  }
+
   /* Champion banner */
   .champion-banner {
     background: linear-gradient(90deg, #1e1800 0%, #2a2000 100%);
@@ -676,7 +751,7 @@ export default function App() {
             <button className="btn btn-ghost" onClick={() => setCreating(false)}>← Volver</button>
             <h1 className="app-wordmark">NUEVO <span>TORNEO</span></h1>
           </div>
-          <div className="card card-accent">
+          <div className="card card-accent create-card">
             <label className="form-label">Nombre del torneo</label>
             <input className="form-input" value={form.name} autoFocus
               onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
@@ -729,7 +804,7 @@ export default function App() {
                   <div className="team-grid">
                     {form.teams.map((t, i) => (
                       <input key={i}
-                        className={`team-input${dupIndices.has(i) ? " dup" : ""}`}
+                        className={`team-input${dupIndices.has(i) ? " dup" : t.trim() ? " valid" : ""}`}
                         value={t}
                         placeholder={`Equipo ${i + 1}`}
                         onChange={(e) => {
@@ -790,8 +865,9 @@ export default function App() {
             <div className="empty-text">No hay torneos todavía. ¡Creá el primero!</div>
           </div>
         ) : (
-          data.tournaments.map((t) => (
+          data.tournaments.map((t, i) => (
             <div key={t.id} className="t-item"
+              style={{ animationDelay: `${i * 0.06}s` }}
               onClick={() => { setActiveTid(t.id); setView("tournament"); }}>
               <div style={{ flex: 1 }}>
                 <div className="t-item-name">{t.name}</div>
@@ -826,7 +902,7 @@ function BracketView({ rounds }) {
   }
 
   return (
-    <div className="bracket-wrap">
+    <div className="bracket-wrap bracket-scroll-hint">
       <div style={{ display: "flex", alignItems: "flex-start", minWidth: "max-content" }}>
         {rounds.map((round, ri) => {
           const cc = centers(ri);
@@ -906,8 +982,14 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
   const [tab, setTab] = useState(defaultTab);
   const [groupTab, setGroupTab] = useState(t.groups?.[0]?.name || "A");
   const [selectedMatch, setSelectedMatch] = useState(null);
+  const [justSaved, setJustSaved] = useState(new Set());
   const [inputs, setInputs] = useState({});
   const [confirm, setConfirm] = useState(false);
+
+  function markSaved(id) {
+    setJustSaved((prev) => new Set([...prev, id]));
+    setTimeout(() => setJustSaved((prev) => { const n = new Set(prev); n.delete(id); return n; }), 800);
+  }
 
   useEffect(() => {
     if (t.status !== "pending") setTab(t.status === "groups" ? "partidos" : "playoffs");
@@ -998,7 +1080,7 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
 
         {/* ── PARTIDOS TAB ── */}
         {tab === "partidos" && (
-          <div>
+          <div className="tab-panel">
             {t.groups?.length > 1 && (
               <div className="pill-group" style={{ marginBottom: 16 }}>
                 {t.groups.map((g) => (
@@ -1033,10 +1115,13 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
                   const winB = done && m.awayGoals > m.homeGoals;
                   const draw = done && m.homeGoals === m.awayGoals;
                   function tryAutoSave(newHv, newAv) {
-                    if (newHv !== "" && newAv !== "") onSaveGroup(activeGroupIdx, m.id, newHv, newAv);
+                    if (newHv !== "" && newAv !== "") {
+                      onSaveGroup(activeGroupIdx, m.id, newHv, newAv);
+                      markSaved(m.id);
+                    }
                   }
                   return (
-                    <div key={m.id} className={`match-card-item${done ? " done" : ""}${selectedMatch === m.id ? " selected" : ""}`}>
+                    <div key={m.id} className={`match-card-item${done ? " done" : ""}${selectedMatch === m.id ? " selected" : ""}${justSaved.has(m.id) ? " just-saved" : ""}`}>
                       <span className={`match-card-name${winA ? " winner" : winB ? " loser" : ""}`}>{m.home}</span>
                       <div className="match-card-scores">
                         {done ? (
@@ -1087,7 +1172,7 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
 
         {/* ── STANDINGS TAB ── */}
         {tab === "standings" && (
-          <>
+          <div className="tab-panel">
             {t.groups?.map((g, gi) => {
               const standings = computeStandings(g.teams, g.matches);
               return (
@@ -1123,12 +1208,12 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
                 </div>
               );
             })}
-          </>
+          </div>
         )}
 
         {/* ── PLAYOFFS TAB ── */}
         {tab === "playoffs" && (
-          <>
+          <div className="tab-panel">
             {(!t.playoff || t.playoff.length === 0) && (
               <div className="empty-state">
                 <div className="empty-text">Los playoffs se generan al terminar la fase de grupos.</div>
@@ -1171,7 +1256,7 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
                 })}
               </div>
             ))}
-          </>
+          </div>
         )}
       </div>
     </div>
