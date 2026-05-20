@@ -234,7 +234,7 @@ const css = `
     margin-right: 7px; vertical-align: middle;
   }
 
-  /* Match row */
+  /* Match row (playoffs) */
   .match-row {
     display: flex; align-items: center; gap: 8px;
     padding: 8px 0; border-bottom: 1px solid var(--border);
@@ -266,6 +266,48 @@ const css = `
     font-size: 11px; font-weight: 700; letter-spacing: .5px;
     flex-shrink: 0;
   }
+
+  /* Match card (groups fixture) */
+  .match-card-item {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+    transition: border-color .15s;
+  }
+  .match-card-item:last-child { margin-bottom: 0; }
+  .match-card-item.done { border-color: var(--border2); }
+  .match-card-name {
+    flex: 1; font-size: 14px; font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .match-card-name.right { text-align: right; }
+  .match-card-name.winner {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px; font-weight: 700; color: var(--accent);
+  }
+  .match-card-name.loser { color: var(--muted); }
+  .match-card-scores {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
+  .match-card-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 26px; font-weight: 700; min-width: 28px; text-align: center;
+    line-height: 1;
+  }
+  .match-card-num.winner { color: var(--accent); }
+  .match-card-num.loser { color: var(--muted); }
+  .match-card-num.draw { color: var(--text); }
+  .match-card-sep { color: var(--border2); font-size: 16px; }
+  .match-card-input {
+    width: 48px; padding: 6px 8px; text-align: center;
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 6px; font-size: 20px; font-weight: 700;
+    font-family: 'Barlow Condensed', sans-serif;
+    color: var(--text); outline: none; transition: border-color .15s;
+    font-variant-numeric: tabular-nums;
+  }
+  .match-card-input:focus { border-color: var(--accent); background: var(--bg); }
+  .match-card-input::placeholder { color: var(--border2); font-size: 16px; }
 
   /* Champion banner */
   .champion-banner {
@@ -971,19 +1013,40 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
                   const hk = `${activeGroupIdx}-${m.id}-h`, ak = `${activeGroupIdx}-${m.id}-a`;
                   const hv = get(hk, m.homeGoals !== null ? String(m.homeGoals) : "");
                   const av = get(ak, m.awayGoals !== null ? String(m.awayGoals) : "");
+                  const done = m.status === "finished";
+                  const winA = done && m.homeGoals > m.awayGoals;
+                  const winB = done && m.awayGoals > m.homeGoals;
+                  const draw = done && m.homeGoals === m.awayGoals;
+                  function tryAutoSave(newHv, newAv) {
+                    if (newHv !== "" && newAv !== "") onSaveGroup(activeGroupIdx, m.id, newHv, newAv);
+                  }
                   return (
-                    <div key={m.id} className="match-row">
-                      <span className="match-team">{m.home}</span>
-                      <input className="goal-input" type="number" min="0" value={hv} disabled={m.status === "finished"}
-                        onChange={(e) => inp(hk, e.target.value)} />
-                      <span className="match-sep">—</span>
-                      <input className="goal-input" type="number" min="0" value={av} disabled={m.status === "finished"}
-                        onChange={(e) => inp(ak, e.target.value)} />
-                      <span className="match-team right">{m.away}</span>
-                      {m.status === "finished"
-                        ? <span className="done-badge">FIN</span>
-                        : <button className="btn btn-sm" disabled={hv === "" || av === ""}
-                            onClick={() => onSaveGroup(activeGroupIdx, m.id, hv, av)}>Guardar</button>}
+                    <div key={m.id} className={`match-card-item${done ? " done" : ""}`}>
+                      <span className={`match-card-name${winA ? " winner" : winB ? " loser" : ""}`}>{m.home}</span>
+                      <div className="match-card-scores">
+                        {done ? (
+                          <>
+                            <span className={`match-card-num ${winA ? "winner" : draw ? "draw" : "loser"}`}>{m.homeGoals}</span>
+                            <span className="match-card-sep">—</span>
+                            <span className={`match-card-num ${winB ? "winner" : draw ? "draw" : "loser"}`}>{m.awayGoals}</span>
+                          </>
+                        ) : (
+                          <>
+                            <input
+                              className="match-card-input" type="number" min="0" placeholder="—" value={hv}
+                              onChange={(e) => inp(hk, e.target.value)}
+                              onBlur={(e) => tryAutoSave(e.target.value, av)}
+                            />
+                            <span className="match-card-sep">—</span>
+                            <input
+                              className="match-card-input" type="number" min="0" placeholder="—" value={av}
+                              onChange={(e) => inp(ak, e.target.value)}
+                              onBlur={(e) => tryAutoSave(hv, e.target.value)}
+                            />
+                          </>
+                        )}
+                      </div>
+                      <span className={`match-card-name right${winB ? " winner" : winA ? " loser" : ""}`}>{m.away}</span>
                     </div>
                   );
                 })}
