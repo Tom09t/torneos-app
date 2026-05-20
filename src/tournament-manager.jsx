@@ -847,22 +847,36 @@ function BracketView({ rounds }) {
 
 /* ─── Tournament View ───────────────────────────────────── */
 function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDelete }) {
-  const hasTabs = t.status !== "pending";
-  const defaultTab = t.status === "groups" ? "groups" : "playoffs";
+  const defaultTab = t.status === "groups" ? "partidos" : "playoffs";
   const [tab, setTab] = useState(defaultTab);
+  const [groupTab, setGroupTab] = useState(t.groups?.[0]?.name || "A");
   const [inputs, setInputs] = useState({});
   const [confirm, setConfirm] = useState(false);
 
   useEffect(() => {
-    if (t.status !== "pending") setTab(t.status === "groups" ? "groups" : "playoffs");
+    if (t.status !== "pending") setTab(t.status === "groups" ? "partidos" : "playoffs");
   }, [t.status]);
+
+  useEffect(() => {
+    if (t.groups?.length > 0 && !t.groups.find((g) => g.name === groupTab)) {
+      setGroupTab(t.groups[0].name);
+    }
+  }, [t.groups]);
 
   function inp(key, val) { setInputs((p) => ({ ...p, [key]: val })); }
   function get(key, fallback) { return inputs[key] !== undefined ? inputs[key] : fallback; }
 
   const tabs = [];
-  if (t.groups?.length > 0) tabs.push({ k: "groups", l: "Grupos" });
-  if (t.playoff?.length > 0 || t.status === "playoffs" || t.status === "finished") tabs.push({ k: "playoffs", l: "Playoffs" });
+  if (t.groups?.length > 0) {
+    tabs.push({ k: "partidos", l: "Partidos" });
+    tabs.push({ k: "standings", l: "Tabla de posiciones" });
+  }
+  if (t.playoff?.length > 0 || t.status === "playoffs" || t.status === "finished") {
+    tabs.push({ k: "playoffs", l: "Playoffs" });
+  }
+
+  const activeGroupIdx = t.groups?.findIndex((g) => g.name === groupTab) ?? 0;
+  const activeGroup = t.groups?.[activeGroupIdx];
 
   return (
     <div className="tm-root">
@@ -925,71 +939,99 @@ function TournamentView({ t, onBack, onStart, onSaveGroup, onSavePlayoff, onDele
           </div>
         )}
 
-        {/* ── GROUPS TAB ── */}
-        {tab === "groups" && t.groups?.map((g, gi) => {
-          const standings = computeStandings(g.teams, g.matches);
-          const doneCnt = g.matches.filter((m) => m.status === "finished").length;
-          return (
-            <div key={gi} className="card" style={{ marginBottom: 14 }}>
-              <div className="group-header">
-                <div>
-                  <div className="group-letter">{g.name}</div>
-                  <div className="group-label">Grupo</div>
-                </div>
-                <div className="matches-count">{doneCnt}/{g.matches.length} partidos</div>
+        {/* ── PARTIDOS TAB ── */}
+        {tab === "partidos" && (
+          <div>
+            {t.groups?.length > 1 && (
+              <div className="pill-group" style={{ marginBottom: 16 }}>
+                {t.groups.map((g) => (
+                  <button
+                    key={g.name}
+                    className={`pill${groupTab === g.name ? " active" : ""}`}
+                    onClick={() => setGroupTab(g.name)}
+                  >
+                    Grupo {g.name}
+                  </button>
+                ))}
               </div>
+            )}
 
-              <table className="standings-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: "35%" }}>Equipo</th>
-                    {["PJ","PG","PE","PP","GF","GC","DG","PTS"].map((h) => <th key={h}>{h}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {standings.map((row, ri) => (
-                    <tr key={row.team} className={ri < (t.advancers || 2) ? "qualifier" : ""}>
-                      <td>
-                        {ri < (t.advancers || 2) && <span className="qualifier-dot" />}
-                        {row.team}
-                      </td>
-                      <td>{row.pj}</td><td>{row.pg}</td><td>{row.pe}</td><td>{row.pp}</td>
-                      <td>{row.gf}</td><td>{row.gc}</td>
-                      <td style={{ color: row.dg > 0 ? "#4caf7d" : row.dg < 0 ? "#e07070" : undefined }}>{row.dg > 0 ? `+${row.dg}` : row.dg}</td>
-                      <td className="pts-cell">{row.pts}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="divider" />
-
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".6px", textTransform: "uppercase", color: "var(--muted)", marginBottom: 8 }}>
-                Partidos
-              </div>
-              {g.matches.map((m) => {
-                const hk = `${gi}-${m.id}-h`, ak = `${gi}-${m.id}-a`;
-                const hv = get(hk, m.homeGoals !== null ? String(m.homeGoals) : "");
-                const av = get(ak, m.awayGoals !== null ? String(m.awayGoals) : "");
-                return (
-                  <div key={m.id} className="match-row">
-                    <span className="match-team">{m.home}</span>
-                    <input className="goal-input" type="number" min="0" value={hv} disabled={m.status === "finished"}
-                      onChange={(e) => inp(hk, e.target.value)} />
-                    <span className="match-sep">—</span>
-                    <input className="goal-input" type="number" min="0" value={av} disabled={m.status === "finished"}
-                      onChange={(e) => inp(ak, e.target.value)} />
-                    <span className="match-team right">{m.away}</span>
-                    {m.status === "finished"
-                      ? <span className="done-badge">FIN</span>
-                      : <button className="btn btn-sm" disabled={hv === "" || av === ""}
-                          onClick={() => onSaveGroup(gi, m.id, hv, av)}>Guardar</button>}
+            {activeGroup && (
+              <div className="card">
+                <div className="group-header">
+                  <div>
+                    <div className="group-letter">{activeGroup.name}</div>
+                    <div className="group-label">Grupo</div>
                   </div>
-                );
-              })}
-            </div>
-          );
-        })}
+                  <div className="matches-count">
+                    {activeGroup.matches.filter((m) => m.status === "finished").length}/{activeGroup.matches.length} partidos
+                  </div>
+                </div>
+                {activeGroup.matches.map((m) => {
+                  const hk = `${activeGroupIdx}-${m.id}-h`, ak = `${activeGroupIdx}-${m.id}-a`;
+                  const hv = get(hk, m.homeGoals !== null ? String(m.homeGoals) : "");
+                  const av = get(ak, m.awayGoals !== null ? String(m.awayGoals) : "");
+                  return (
+                    <div key={m.id} className="match-row">
+                      <span className="match-team">{m.home}</span>
+                      <input className="goal-input" type="number" min="0" value={hv} disabled={m.status === "finished"}
+                        onChange={(e) => inp(hk, e.target.value)} />
+                      <span className="match-sep">—</span>
+                      <input className="goal-input" type="number" min="0" value={av} disabled={m.status === "finished"}
+                        onChange={(e) => inp(ak, e.target.value)} />
+                      <span className="match-team right">{m.away}</span>
+                      {m.status === "finished"
+                        ? <span className="done-badge">FIN</span>
+                        : <button className="btn btn-sm" disabled={hv === "" || av === ""}
+                            onClick={() => onSaveGroup(activeGroupIdx, m.id, hv, av)}>Guardar</button>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── STANDINGS TAB ── */}
+        {tab === "standings" && (
+          <>
+            {t.groups?.map((g, gi) => {
+              const standings = computeStandings(g.teams, g.matches);
+              return (
+                <div key={gi} className="card" style={{ marginBottom: 14 }}>
+                  <div className="group-header">
+                    <div>
+                      <div className="group-letter">{g.name}</div>
+                      <div className="group-label">Grupo</div>
+                    </div>
+                  </div>
+                  <table className="standings-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: "35%" }}>Equipo</th>
+                        {["PJ","PG","PE","PP","GF","GC","DG","PTS"].map((h) => <th key={h}>{h}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {standings.map((row, ri) => (
+                        <tr key={row.team} className={ri < (t.advancers || 2) ? "qualifier" : ""}>
+                          <td>
+                            {ri < (t.advancers || 2) && <span className="qualifier-dot" />}
+                            {row.team}
+                          </td>
+                          <td>{row.pj}</td><td>{row.pg}</td><td>{row.pe}</td><td>{row.pp}</td>
+                          <td>{row.gf}</td><td>{row.gc}</td>
+                          <td style={{ color: row.dg > 0 ? "#4caf7d" : row.dg < 0 ? "#e07070" : undefined }}>{row.dg > 0 ? `+${row.dg}` : row.dg}</td>
+                          <td className="pts-cell">{row.pts}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </>
+        )}
 
         {/* ── PLAYOFFS TAB ── */}
         {tab === "playoffs" && (
